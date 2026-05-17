@@ -11,23 +11,27 @@ const notesContainer = document.getElementById('notes-container');
 const contextMenu = document.getElementById('context-menu');
 const connectionsSvg = document.getElementById('connections-svg');
 
-const connManager = new ConnectionsManager(connectionsSvg, (id) => document.querySelector(`.note[data-id="${id}"]`));
+const connManager = new ConnectionsManager(
+  connectionsSvg,
+  (id) => document.querySelector(`.note[data-id="${id}"]`)
+);
 
 async function init() {
   generateInkOverlays();
   setupToolbar();
   setupCanvasInteraction();
   setupContextMenu();
-  
+
   showToast('Synchronisiere Notes...', 'sync');
   notes = await fetchNotes();
-  
+
   if (notes.length === 0) {
     await handleCreateNote({
       content_front: "Willkommen beim Leonardo Board!\nEin Canvas für kreative Gedanken.",
       content_back: "Die Rückseite für mehr Details.",
       color: "#f9e9c8",
-      size: "medium",
+      // Bug 1 Fix: "medium" → "m" damit size-m CSS-Klasse greift
+      size: "m",
       gridCol: 2,
       gridRow: 2,
       rotation: (Math.random() * 5) - 2.5,
@@ -36,15 +40,15 @@ async function init() {
   } else {
     notes.forEach(renderNote);
   }
-  
+
   startSync((updatedNotes) => { /* Sync Handler */ });
 }
 
 function generateInkOverlays() {
   const layer2 = document.querySelector('.layer2.ink-splatters');
   const layer3 = document.querySelector('.layer3.ink-scratches');
-  
-  for(let i=0; i<45; i++) {
+
+  for (let i = 0; i < 45; i++) {
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('cx', `${Math.random() * 100}%`);
     circle.setAttribute('cy', `${Math.random() * 100}%`);
@@ -53,12 +57,12 @@ function generateInkOverlays() {
     circle.setAttribute('opacity', (Math.random() * 0.05 + 0.04).toString());
     layer2.appendChild(circle);
   }
-  
-  for(let i=0; i<3; i++) {
+
+  for (let i = 0; i < 3; i++) {
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     const startX = Math.random() * 100;
     const startY = Math.random() * 100;
-    path.setAttribute('d', `M ${startX}% ${startY}% Q ${startX+10}% ${startY+5}% ${startX+30}% ${startY+10}%`);
+    path.setAttribute('d', `M ${startX}% ${startY}% Q ${startX + 10}% ${startY + 5}% ${startX + 30}% ${startY + 10}%`);
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', '#5a3c1e');
     path.setAttribute('stroke-width', '0.5');
@@ -72,13 +76,14 @@ function setupToolbar() {
     handleCreateNote({
       content_front: "Neue Notiz",
       color: "#f9e060",
-      size: "medium",
+      // Bug 1 Fix: einheitlich "m" statt "medium"
+      size: "m",
       gridCol: Math.floor(Math.random() * 3) + 1,
       gridRow: Math.floor(Math.random() * 3) + 1,
       rotation: (Math.random() * 5) - 2.5
     });
   });
-  
+
   document.getElementById('btn-zoom-in').addEventListener('click', () => setZoom(currentZoom + 0.1));
   document.getElementById('btn-zoom-out').addEventListener('click', () => setZoom(currentZoom - 0.1));
 }
@@ -93,7 +98,7 @@ function setZoom(level) {
 function setupCanvasInteraction() {
   canvas.addEventListener('mouseenter', () => canvas.classList.add('grid-active'));
   canvas.addEventListener('mouseleave', () => {
-    if(!document.querySelector('.note.dragging')) canvas.classList.remove('grid-active');
+    if (!document.querySelector('.note.dragging')) canvas.classList.remove('grid-active');
   });
 
   container.addEventListener('wheel', (e) => {
@@ -119,20 +124,26 @@ function renderNote(noteData) {
   const noteEl = document.createElement('div');
   noteEl.className = `note size-${noteData.size || 'm'} ${noteData.isFlipped ? 'is-flipped' : ''}`;
   noteEl.dataset.id = noteData.id;
-  
+
   const cellSize = 200, gap = 24;
   noteEl.style.left = `${(noteData.gridCol - 1) * (cellSize + gap)}px`;
   noteEl.style.top = `${(noteData.gridRow - 1) * (cellSize + gap)}px`;
   noteEl.style.transform = `rotate(${noteData.rotation || 0}deg)`;
   noteEl.style.backgroundColor = noteData.color;
-  
-  if(['#2c3e50', '#1a2639', '#5d7a61'].includes(noteData.color)) noteEl.classList.add('dark-mode');
+
+  if (['#2c3e50', '#1a2639', '#5d7a61'].includes(noteData.color)) {
+    noteEl.classList.add('dark-mode');
+  }
+
+  const pinSvg = noteData.pinned
+    ? `<svg class="note-pin" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2"><path d="M12 2L12 10M12 22L12 14M16 6H8M18 14H6M9 22L15 22"/></svg>`
+    : '';
 
   noteEl.innerHTML = `
     <div class="note-inner">
       <div class="note-front">
         <div class="note-tape"></div>
-        ${noteData.pinned ? '<svg class="note-pin" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2"><path d="M12 2L12 10M12 22L12 14M16 6H8M18 14H6M9 22L15 22"/></svg>' : ''}
+        ${pinSvg}
         ${noteData.label ? `<div class="note-tag">${noteData.label}</div>` : ''}
         <div class="note-content front-content" contenteditable="true" spellcheck="false">${noteData.content_front || ''}</div>
         <div class="note-date">${new Date(noteData.createdAt || Date.now()).toLocaleDateString()}</div>
@@ -144,7 +155,7 @@ function renderNote(noteData) {
       </div>
     </div>
   `;
-  
+
   notesContainer.appendChild(noteEl);
   setupNoteInteractions(noteEl, noteData);
 }
@@ -160,7 +171,7 @@ function setupNoteInteractions(noteEl, noteData) {
       });
     }, 800);
   };
-  
+
   noteEl.querySelector('.front-content').addEventListener('input', saveContent);
   noteEl.querySelector('.back-content').addEventListener('input', saveContent);
 
@@ -191,22 +202,22 @@ function setupNoteInteractions(noteEl, noteData) {
     isDragging = false;
     noteEl.classList.remove('dragging');
     canvas.classList.remove('grid-active');
-    
+
     noteEl.style.transition = 'transform 400ms var(--ease-in-out), left 180ms var(--spring), top 180ms var(--spring)';
-    
-    const step = 224; // 200px cell + 24px gap
+
+    const step = 224;
     let newCol = Math.max(1, Math.round(parseFloat(noteEl.style.left) / step) + 1);
     let newRow = Math.max(1, Math.round(parseFloat(noteEl.style.top) / step) + 1);
-    
+
     noteEl.style.left = `${(newCol - 1) * step}px`;
     noteEl.style.top = `${(newRow - 1) * step}px`;
     noteEl.style.zIndex = '';
     noteEl.style.transform = `rotate(${noteData.rotation}deg)`;
-    
+
     updateNote(noteData.id, { gridCol: newCol, gridRow: newRow });
     setTimeout(() => connManager.updateLines(), 180);
   });
-  
+
   noteEl.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     showContextMenu(e.clientX, e.clientY, noteData, noteEl);
@@ -217,12 +228,12 @@ let activeContextNote = null, activeContextElement = null;
 
 function setupContextMenu() {
   document.addEventListener('click', (e) => {
-    if(!e.target.closest('#context-menu')) contextMenu.classList.add('hidden');
+    if (!e.target.closest('#context-menu')) contextMenu.classList.add('hidden');
   });
 
   contextMenu.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
-    if(btn && activeContextNote) {
+    if (btn && activeContextNote) {
       handleContextAction(btn.dataset.action);
       contextMenu.classList.add('hidden');
     }
@@ -235,36 +246,61 @@ function showContextMenu(x, y, noteData, noteEl) {
   contextMenu.style.left = `${x}px`;
   contextMenu.style.top = `${y}px`;
   contextMenu.classList.remove('hidden');
-  
+
   const pinBtn = contextMenu.querySelector('[data-action="pin"]');
-  if(pinBtn) pinBtn.innerHTML = noteData.pinned ? '📌 Lösen' : '📌 Anheften';
+  if (pinBtn) pinBtn.innerHTML = noteData.pinned ? '📌 Lösen' : '📌 Anheften';
 }
 
 function handleContextAction(action) {
   const data = activeContextNote, el = activeContextElement;
-  switch(action) {
+  switch (action) {
     case 'flip':
       data.isFlipped = !data.isFlipped;
       el.classList.toggle('is-flipped');
       updateNote(data.id, { isFlipped: data.isFlipped });
       break;
+
     case 'delete':
       el.classList.add('deleting');
       setTimeout(async () => {
         el.remove();
         await deleteNote(data.id);
         showToast('Notiz gelöscht');
-        connManager.updateLines(); 
+        connManager.updateLines();
       }, 180);
       break;
+
     case 'duplicate':
-      const copy = { ...data, gridCol: data.gridCol + 1, rotation: (Math.random() * 5) - 2.5 };
+      // Bug 5 Fix: content_back mit Fallback '', nicht undefined
+      const copy = {
+        ...data,
+        content_back: data.content_back || '',
+        gridCol: data.gridCol + 1,
+        rotation: (Math.random() * 5) - 2.5
+      };
       delete copy.id;
       handleCreateNote(copy);
       break;
+
     case 'pin':
       data.pinned = !data.pinned;
       updateNote(data.id, { pinned: data.pinned });
+      // Bug 4 Fix: Pin-Icon live im DOM aktualisieren
+      const front = el.querySelector('.note-front');
+      const existingPin = front.querySelector('.note-pin');
+      if (data.pinned && !existingPin) {
+        const pinSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        pinSvg.setAttribute('class', 'note-pin');
+        pinSvg.setAttribute('viewBox', '0 0 24 24');
+        pinSvg.setAttribute('fill', 'none');
+        pinSvg.setAttribute('stroke', '#e74c3c');
+        pinSvg.setAttribute('stroke-width', '2');
+        pinSvg.innerHTML = '<path d="M12 2L12 10M12 22L12 14M16 6H8M18 14H6M9 22L15 22"/>';
+        front.appendChild(pinSvg);
+      } else if (!data.pinned && existingPin) {
+        existingPin.remove();
+      }
+      showToast(data.pinned ? 'Notiz angeheftet 📌' : 'Notiz gelöst', 'success');
       break;
   }
 }

@@ -42,8 +42,26 @@ export async function deleteConnection(connectionId) {
 }
 
 export function startSync(onUpdate) {
+  // Bug 7 Fix: Echter Online/Offline-Status statt statischem "Online"
+  function updateSyncStatus() {
+    const dot = document.getElementById('sync-indicator');
+    const text = document.getElementById('sync-text');
+    if (!dot || !text) return;
+    if (navigator.onLine) {
+      dot.className = 'sync-dot online';
+      text.textContent = 'Online';
+    } else {
+      dot.className = 'sync-dot offline';
+      text.textContent = 'Offline';
+    }
+  }
+
+  updateSyncStatus();
+  window.addEventListener('online', updateSyncStatus);
+  window.addEventListener('offline', updateSyncStatus);
+
   setInterval(() => {
-    // Polling Logik für echte API
+    // Polling-Logik für echte API
   }, 30000);
 }
 
@@ -53,9 +71,9 @@ export function showToast(message, type = 'info') {
   toast.className = `toast ${type}`;
   
   let icon = 'ℹ️';
-  if(type === 'success') icon = '✅';
-  if(type === 'error') icon = '⚠️';
-  if(type === 'sync') icon = '🔄';
+  if (type === 'success') icon = '✅';
+  if (type === 'error') icon = '⚠️';
+  if (type === 'sync') icon = '🔄';
   
   toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
   container.appendChild(toast);
