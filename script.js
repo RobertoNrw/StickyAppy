@@ -271,6 +271,12 @@ function setupNoteInteractions(noteEl, noteData) {
   let startX, startY, initialLeft, initialTop;
   // Phase 4a: Long-Press für Context Menu
   let longPressTimer = null;
+  
+  // Event-Listener Referenzen für Cleanup
+  let mouseMoveHandler = null;
+  let mouseUpHandler = null;
+  let touchMoveHandler = null;
+  let touchEndHandler = null;
 
   function dragStart(clientX, clientY) {
     isDragging = true;
@@ -283,12 +289,31 @@ function setupNoteInteractions(noteEl, noteData) {
     initialTop  = parseFloat(noteEl.style.top)  || 0;
     noteEl.style.transition = 'none';
     setFocus(noteData, noteEl);
+    
+    // Listener registrieren mit Referenz für späteres Cleanup
+    mouseMoveHandler = (e) => dragMove(e.clientX, e.clientY);
+    mouseUpHandler = () => {
+      dragEnd();
+      cleanupDragListeners();
+    };
+    window.addEventListener('mousemove', mouseMoveHandler, { passive: false });
+    window.addEventListener('mouseup', mouseUpHandler, { passive: false });
+  }
+  
+  function cleanupDragListeners() {
+    if (mouseMoveHandler) window.removeEventListener('mousemove', mouseMoveHandler);
+    if (mouseUpHandler) window.removeEventListener('mouseup', mouseUpHandler);
+    mouseMoveHandler = null;
+    mouseUpHandler = null;
   }
 
   function dragMove(clientX, clientY) {
     if (!isDragging) return;
-    noteEl.style.left = `${initialLeft + (clientX - startX) / currentZoom}px`;
-    noteEl.style.top  = `${initialTop  + (clientY - startY) / currentZoom}px`;
+    // Zoom-Korrektur: Bewegung direkt anwenden, dann durch Zoom teilen für korrekte Skalierung
+    const deltaX = (clientX - startX);
+    const deltaY = (clientY - startY);
+    noteEl.style.left = `${initialLeft + (deltaX / currentZoom)}px`;
+    noteEl.style.top  = `${initialTop  + (deltaY / currentZoom)}px`;
     connManager.updateLines();
   }
 
@@ -298,9 +323,14 @@ function setupNoteInteractions(noteEl, noteData) {
     noteEl.classList.remove('dragging');
     canvas.classList.remove('grid-active');
     noteEl.style.transition = 'transform 400ms var(--ease-in-out), left 180ms var(--spring), top 180ms var(--spring)';
+    
+    // Grid-Snapping: Korrekte Berechnung basierend auf der aktuellen Position
     const step   = 224;
-    const newCol = Math.max(1, Math.round(parseFloat(noteEl.style.left) / step) + 1);
-    const newRow = Math.max(1, Math.round(parseFloat(noteEl.style.top)  / step) + 1);
+    const currentLeft = parseFloat(noteEl.style.left) || 0;
+    const currentTop  = parseFloat(noteEl.style.top)  || 0;
+    const newCol = Math.max(1, Math.round(currentLeft / step) + 1);
+    const newRow = Math.max(1, Math.round(currentTop  / step) + 1);
+    
     noteEl.style.left      = `${(newCol - 1) * step}px`;
     noteEl.style.top       = `${(newRow - 1) * step}px`;
     noteEl.style.zIndex    = '';
@@ -319,8 +349,7 @@ function setupNoteInteractions(noteEl, noteData) {
     dragStart(e.clientX, e.clientY);
     e.preventDefault();
   });
-  window.addEventListener('mousemove', (e) => dragMove(e.clientX, e.clientY));
-  window.addEventListener('mouseup',   () => dragEnd());
+  // Die Listener werden jetzt in dragStart() registriert und in cleanupDragListeners() entfernt
 
   noteEl.addEventListener('contextmenu', (e) => {
     e.preventDefault();
@@ -379,6 +408,10 @@ function setupResizeInteraction(noteEl, noteData) {
 
   let isResizing = false;
   let startX, startY, startW, startH;
+  
+  // Event-Listener Referenzen für Cleanup
+  let resizeMouseMoveHandler = null;
+  let resizeMouseUpHandler = null;
 
   function resizeStart(clientX, clientY) {
     isResizing = true;
@@ -388,6 +421,22 @@ function setupResizeInteraction(noteEl, noteData) {
     noteEl.style.transition = 'none';
     noteEl.style.zIndex     = 100;
     ['size-s','size-m','size-l','size-xl'].forEach(c => noteEl.classList.remove(c));
+    
+    // Listener registrieren mit Referenz für späteres Cleanup
+    resizeMouseMoveHandler = (e) => resizeMove(e.clientX, e.clientY);
+    resizeMouseUpHandler = () => {
+      resizeEnd();
+      cleanupResizeListeners();
+    };
+    window.addEventListener('mousemove', resizeMouseMoveHandler, { passive: false });
+    window.addEventListener('mouseup', resizeMouseUpHandler, { passive: false });
+  }
+  
+  function cleanupResizeListeners() {
+    if (resizeMouseMoveHandler) window.removeEventListener('mousemove', resizeMouseMoveHandler);
+    if (resizeMouseUpHandler) window.removeEventListener('mouseup', resizeMouseUpHandler);
+    resizeMouseMoveHandler = null;
+    resizeMouseUpHandler = null;
   }
 
   function resizeMove(clientX, clientY) {
@@ -421,8 +470,7 @@ function setupResizeInteraction(noteEl, noteData) {
     e.preventDefault();
     e.stopPropagation();
   });
-  window.addEventListener('mousemove', (e) => resizeMove(e.clientX, e.clientY));
-  window.addEventListener('mouseup',   () => resizeEnd());
+  // Die Listener werden jetzt in resizeStart() registriert und in cleanupResizeListeners() entfernt
 
   // Phase 4a: Touch
   handle.addEventListener('touchstart', (e) => {

@@ -1,0 +1,1 @@
+Nothing needs to be added to .gitignore since only JavaScript source files (connections.js, script.js) were modified and no build artifacts, dependencies, or temporary files are present in the changes.
