@@ -27,13 +27,41 @@ const SIZE_MAP = {
   l:  { w: 300, h: 300 },
   xl: { w: 400, h: 200 }
 };
-
-// Gibt den nächstliegenden Size-Key für eine gegebene Breite zurück
 function snapToSize(width) {
-  const sizes = Object.entries(SIZE_MAP);
-  return sizes.reduce((best, [key, dim]) => {
-    return Math.abs(dim.w - width) < Math.abs(SIZE_MAP[best].w - width) ? key : best;
-  }, 'm');
+  return Object.entries(SIZE_MAP).reduce((best, [key, dim]) =>
+    Math.abs(dim.w - width) < Math.abs(SIZE_MAP[best].w - width) ? key : best
+  , 'm');
+}
+
+// ─── Phase 4a: Touch-Koordinaten-Helper ───────────────────────────────────────
+// Gibt einheitlich {clientX, clientY} für Mouse- und Touch-Events zurück
+function getCoords(e) {
+  if (e.touches && e.touches.length > 0)        return e.touches[0];
+  if (e.changedTouches && e.changedTouches.length > 0) return e.changedTouches[0];
+  return e;
+}
+
+// Abstand zwischen zwei Touch-Punkten (für Pinch-Zoom)
+function getTouchDistance(e) {
+  const [t1, t2] = [e.touches[0], e.touches[1]];
+  return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+}
+
+// ─── Fokussierte Note (Phase 4b vorbereiten) ──────────────────────────────────
+let focusedNote    = null;
+let focusedElement = null;
+
+function setFocus(noteData, noteEl) {
+  if (focusedElement) focusedElement.classList.remove('focused');
+  focusedNote    = noteData;
+  focusedElement = noteEl;
+  if (noteEl) noteEl.classList.add('focused');
+}
+
+function clearFocus() {
+  if (focusedElement) focusedElement.classList.remove('focused');
+  focusedNote    = null;
+  focusedElement = null;
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
@@ -42,6 +70,7 @@ async function init() {
   setupToolbar();
   setupCanvasInteraction();
   setupContextMenu();
+  setupKeyboardShortcuts(); // Phase 4b
 
   showToast('Lade Board...', 'sync');
 
@@ -118,18 +147,52 @@ function setZoom(level) {
   connManager.updateLines();
 }
 
-// ─── Canvas Wheel-Zoom ───────────────────────────────────────────────────────────
+// ─── Canvas Interaction (Mouse Wheel + Phase 4a: Pinch-Zoom) ─────────────────────
 function setupCanvasInteraction() {
   canvas.addEventListener('mouseenter', () => canvas.classList.add('grid-active'));
   canvas.addEventListener('mouseleave', () => {
     if (!document.querySelector('.note.dragging')) canvas.classList.remove('grid-active');
   });
+
+  // Mouse Wheel Zoom
   container.addEventListener('wheel', (e) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       setZoom(currentZoom + (e.deltaY > 0 ? -0.05 : 0.05));
     }
   }, { passive: false });
+
+  // Phase 4a: Pinch-to-Zoom
+  let pinchStartDist = null;
+  let pinchStartZoom = 1;
+
+  container.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      pinchStartDist = getTouchDistance(e);
+      pinchStartZoom = currentZoom;
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  container.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && pinchStartDist !== null) {
+      const newDist = getTouchDistance(e);
+      const scale   = newDist / pinchStartDist;
+      setZoom(pinchStartZoom * scale);
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  container.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) pinchStartDist = null;
+  });
+
+  // Canvas-Klick → Fokus aufheben
+  canvas.addEventListener('click', (e) => {
+    if (!e.target.closest('.note') && !e.target.closest('#context-menu')) {
+      clearFocus();
+    }
+  });
 }
 
 // ─── Create Note ──────────────────────────────────────────────────────────────
@@ -184,11 +247,12 @@ function renderNote(noteData) {
 
   notesContainer.appendChild(noteEl);
   setupNoteInteractions(noteEl, noteData);
-  setupResizeInteraction(noteEl, noteData);  // Phase 3b
+  setupResizeInteraction(noteEl, noteData);
 }
 
-// ─── Note Drag + Auto-Save ────────────────────────────────────────────────────────
+// ─── Note Drag + Auto-Save (Mouse + Phase 4a: Touch) ────────────────────────────
 function setupNoteInteractions(noteEl, noteData) {
+  // ─ Auto-Save Inhalt ────────────────────────────────────────────────────
   let saveTimeout;
   const saveContent = () => {
     clearTimeout(saveTimeout);
@@ -202,32 +266,33 @@ function setupNoteInteractions(noteEl, noteData) {
   noteEl.querySelector('.front-content').addEventListener('input', saveContent);
   noteEl.querySelector('.back-content') .addEventListener('input', saveContent);
 
-  let isDragging = false, startX, startY, initialLeft, initialTop;
+  // ─ Gemeinsame Drag-Logik (für Mouse + Touch) ──────────────────────────
+  let isDragging  = false;
+  let startX, startY, initialLeft, initialTop;
+  // Phase 4a: Long-Press für Context Menu
+  let longPressTimer = null;
 
-  noteEl.addEventListener('mousedown', (e) => {
-    if (e.target.closest('[contenteditable]') ||
-        e.target.closest('.note-resize-handle') ||
-        e.button !== 0 ||
-        noteData.pinned) return;
+  function dragStart(clientX, clientY) {
     isDragging = true;
     noteEl.classList.add('dragging');
     canvas.classList.add('grid-active');
-    noteEl.style.zIndex = 100;
-    startX = e.clientX; startY = e.clientY;
+    noteEl.style.zIndex     = 100;
+    startX      = clientX;
+    startY      = clientY;
     initialLeft = parseFloat(noteEl.style.left) || 0;
     initialTop  = parseFloat(noteEl.style.top)  || 0;
     noteEl.style.transition = 'none';
-    e.preventDefault();
-  });
+    setFocus(noteData, noteEl);
+  }
 
-  window.addEventListener('mousemove', (e) => {
+  function dragMove(clientX, clientY) {
     if (!isDragging) return;
-    noteEl.style.left = `${initialLeft + (e.clientX - startX) / currentZoom}px`;
-    noteEl.style.top  = `${initialTop  + (e.clientY - startY) / currentZoom}px`;
+    noteEl.style.left = `${initialLeft + (clientX - startX) / currentZoom}px`;
+    noteEl.style.top  = `${initialTop  + (clientY - startY) / currentZoom}px`;
     connManager.updateLines();
-  });
+  }
 
-  window.addEventListener('mouseup', () => {
+  function dragEnd() {
     if (!isDragging) return;
     isDragging = false;
     noteEl.classList.remove('dragging');
@@ -236,23 +301,78 @@ function setupNoteInteractions(noteEl, noteData) {
     const step   = 224;
     const newCol = Math.max(1, Math.round(parseFloat(noteEl.style.left) / step) + 1);
     const newRow = Math.max(1, Math.round(parseFloat(noteEl.style.top)  / step) + 1);
-    noteEl.style.left    = `${(newCol - 1) * step}px`;
-    noteEl.style.top     = `${(newRow - 1) * step}px`;
-    noteEl.style.zIndex  = '';
+    noteEl.style.left      = `${(newCol - 1) * step}px`;
+    noteEl.style.top       = `${(newRow - 1) * step}px`;
+    noteEl.style.zIndex    = '';
     noteEl.style.transform = `rotate(${noteData.rotation}deg)`;
     noteData.gridCol = newCol;
     noteData.gridRow = newRow;
     updateNote(noteData.id, { gridCol: newCol, gridRow: newRow });
     setTimeout(() => connManager.updateLines(), 180);
+  }
+
+  // ─ Mouse Events ─────────────────────────────────────────────────────────
+  noteEl.addEventListener('mousedown', (e) => {
+    if (e.target.closest('[contenteditable]') ||
+        e.target.closest('.note-resize-handle') ||
+        e.button !== 0 || noteData.pinned) return;
+    dragStart(e.clientX, e.clientY);
+    e.preventDefault();
   });
+  window.addEventListener('mousemove', (e) => dragMove(e.clientX, e.clientY));
+  window.addEventListener('mouseup',   () => dragEnd());
 
   noteEl.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     showContextMenu(e.clientX, e.clientY, noteData, noteEl);
   });
+
+  // ─ Phase 4a: Touch Events ───────────────────────────────────────────────
+  noteEl.addEventListener('touchstart', (e) => {
+    // Nur 1 Finger = Drag oder Long-Press; 2 Finger = Pinch (wird im Container behandelt)
+    if (e.touches.length !== 1) return;
+    if (e.target.closest('[contenteditable]') ||
+        e.target.closest('.note-resize-handle') ||
+        noteData.pinned) return;
+
+    const touch = getCoords(e);
+    setFocus(noteData, noteEl);
+
+    // Long-Press-Timer: 500ms ohne Bewegung → Context Menu
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      if (!isDragging) {
+        showContextMenu(touch.clientX, touch.clientY, noteData, noteEl);
+      }
+    }, 500);
+
+    dragStart(touch.clientX, touch.clientY);
+    e.preventDefault();
+  }, { passive: false });
+
+  noteEl.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 1) return;
+    // Sobald Finger sich bewegt: Long-Press-Timer abbrechen
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+    const touch = getCoords(e);
+    dragMove(touch.clientX, touch.clientY);
+    e.preventDefault();
+  }, { passive: false });
+
+  noteEl.addEventListener('touchend', (e) => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+    dragEnd();
+    e.preventDefault();
+  }, { passive: false });
 }
 
-// ─── Phase 3b: Resize-Handle ───────────────────────────────────────────────────────
+// ─── Resize-Handle (Mouse + Phase 4a: Touch) ──────────────────────────────────
 function setupResizeInteraction(noteEl, noteData) {
   const handle = noteEl.querySelector('.note-resize-handle');
   if (!handle) return;
@@ -260,52 +380,70 @@ function setupResizeInteraction(noteEl, noteData) {
   let isResizing = false;
   let startX, startY, startW, startH;
 
-  handle.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
+  function resizeStart(clientX, clientY) {
     isResizing = true;
-    startX = e.clientX;
-    startY = e.clientY;
+    startX = clientX; startY = clientY;
     startW = noteEl.offsetWidth;
     startH = noteEl.offsetHeight;
     noteEl.style.transition = 'none';
     noteEl.style.zIndex     = 100;
-    // Größen-CSS-Klassen während Resize deaktivieren
     ['size-s','size-m','size-l','size-xl'].forEach(c => noteEl.classList.remove(c));
+  }
+
+  function resizeMove(clientX, clientY) {
+    if (!isResizing) return;
+    const dx   = (clientX - startX) / currentZoom;
+    const dy   = (clientY - startY) / currentZoom;
+    noteEl.style.width  = `${Math.max(120, startW + dx)}px`;
+    noteEl.style.height = `${Math.max(120, startH + dy)}px`;
+    connManager.updateLines();
+  }
+
+  function resizeEnd() {
+    if (!isResizing) return;
+    isResizing = false;
+    noteEl.style.zIndex     = '';
+    noteEl.style.transition = 'transform 400ms var(--ease-in-out)';
+    const snapped = snapToSize(noteEl.offsetWidth);
+    noteEl.style.width  = '';
+    noteEl.style.height = '';
+    noteEl.classList.add(`size-${snapped}`);
+    noteData.size = snapped;
+    updateNote(noteData.id, { size: snapped });
+    showToast(`Größe: ${snapped.toUpperCase()}`, 'info');
+    setTimeout(() => connManager.updateLines(), 50);
+  }
+
+  // Mouse
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    resizeStart(e.clientX, e.clientY);
     e.preventDefault();
     e.stopPropagation();
   });
+  window.addEventListener('mousemove', (e) => resizeMove(e.clientX, e.clientY));
+  window.addEventListener('mouseup',   () => resizeEnd());
 
-  window.addEventListener('mousemove', (e) => {
-    if (!isResizing) return;
-    const dx = (e.clientX - startX) / currentZoom;
-    const dy = (e.clientY - startY) / currentZoom;
-    const newW = Math.max(120, startW + dx);
-    const newH = Math.max(120, startH + dy);
-    noteEl.style.width  = `${newW}px`;
-    noteEl.style.height = `${newH}px`;
-    connManager.updateLines();
-  });
+  // Phase 4a: Touch
+  handle.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    const t = getCoords(e);
+    resizeStart(t.clientX, t.clientY);
+    e.preventDefault();
+    e.stopPropagation();
+  }, { passive: false });
 
-  window.addEventListener('mouseup', () => {
-    if (!isResizing) return;
-    isResizing = false;
-    noteEl.style.zIndex = '';
-    noteEl.style.transition = 'transform 400ms var(--ease-in-out)';
+  handle.addEventListener('touchmove', (e) => {
+    if (e.touches.length !== 1) return;
+    const t = getCoords(e);
+    resizeMove(t.clientX, t.clientY);
+    e.preventDefault();
+  }, { passive: false });
 
-    // Auf nächsten Size-Key einrasten
-    const snappedSize = snapToSize(noteEl.offsetWidth);
-    const dim = SIZE_MAP[snappedSize];
-
-    // Inline-Width/Height entfernen, CSS-Klasse übernimmt wieder
-    noteEl.style.width  = '';
-    noteEl.style.height = '';
-    noteEl.classList.add(`size-${snappedSize}`);
-
-    noteData.size = snappedSize;
-    updateNote(noteData.id, { size: snappedSize });
-    showToast(`Größe: ${snappedSize.toUpperCase()}`, 'info');
-    setTimeout(() => connManager.updateLines(), 50);
-  });
+  handle.addEventListener('touchend', (e) => {
+    resizeEnd();
+    e.preventDefault();
+  }, { passive: false });
 }
 
 // ─── Context Menu ─────────────────────────────────────────────────────────────
@@ -315,6 +453,13 @@ function setupContextMenu() {
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#context-menu')) contextMenu.classList.add('hidden');
   });
+  // Phase 4a: Context Menu auch bei Touch-Tap außerhalb schließen
+  document.addEventListener('touchstart', (e) => {
+    if (!e.target.closest('#context-menu') && !contextMenu.classList.contains('hidden')) {
+      contextMenu.classList.add('hidden');
+    }
+  }, { passive: true });
+
   contextMenu.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-action]');
     if (btn && activeContextNote) {
@@ -327,10 +472,16 @@ function setupContextMenu() {
 function showContextMenu(x, y, noteData, noteEl) {
   activeContextNote    = noteData;
   activeContextElement = noteEl;
-  contextMenu.style.left = `${x}px`;
-  contextMenu.style.top  = `${y}px`;
+
+  // Sicherstellen dass das Menu nicht außerhalb des Viewports landet
+  const menuW = 200, menuH = 320;
+  const safeX = Math.min(x, window.innerWidth  - menuW - 8);
+  const safeY = Math.min(y, window.innerHeight - menuH - 8);
+
+  contextMenu.style.left = `${safeX}px`;
+  contextMenu.style.top  = `${safeY}px`;
   contextMenu.classList.remove('hidden');
-  // Aktive Farbe markieren
+
   contextMenu.querySelectorAll('.color-swatch').forEach(s => {
     s.classList.toggle('active', s.dataset.color === noteData.color);
   });
@@ -352,6 +503,7 @@ function handleContextAction(action, colorValue) {
       setTimeout(async () => {
         el.remove();
         await deleteNote(data.id);
+        if (focusedNote?.id === data.id) clearFocus();
         showToast('Notiz gelöscht');
         connManager.updateLines();
       }, 180);
@@ -376,10 +528,10 @@ function handleContextAction(action, colorValue) {
       const existingPin = front.querySelector('.note-pin');
       if (data.pinned && !existingPin) {
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('class', 'note-pin');
-        svg.setAttribute('viewBox', '0 0 24 24');
-        svg.setAttribute('fill', 'none');
-        svg.setAttribute('stroke', '#e74c3c');
+        svg.setAttribute('class',        'note-pin');
+        svg.setAttribute('viewBox',      '0 0 24 24');
+        svg.setAttribute('fill',         'none');
+        svg.setAttribute('stroke',       '#e74c3c');
         svg.setAttribute('stroke-width', '2');
         svg.innerHTML = '<path d="M12 2L12 10M12 22L12 14M16 6H8M18 14H6M9 22L15 22"/>';
         front.appendChild(svg);
@@ -394,13 +546,88 @@ function handleContextAction(action, colorValue) {
       if (!colorValue) break;
       data.color = colorValue;
       el.style.backgroundColor = colorValue;
-      const darkColors = ['#2c3e50', '#1a2639', '#5d7a61'];
-      el.classList.toggle('dark-mode', darkColors.includes(colorValue));
+      el.classList.toggle('dark-mode', ['#2c3e50','#1a2639','#5d7a61'].includes(colorValue));
       updateNote(data.id, { color: colorValue });
       showToast('Farbe geändert 🎨', 'success');
       break;
     }
   }
+}
+
+// ─── Phase 4b: Keyboard Shortcuts ────────────────────────────────────────────────────
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // Niemals Shortcuts feuern wenn Nutzer gerade in contenteditable tippt
+    const inEditor = !!document.activeElement?.closest('[contenteditable]');
+
+    // Esc: immer – Context Menu schließen + Fokus aufheben
+    if (e.key === 'Escape') {
+      contextMenu.classList.add('hidden');
+      clearFocus();
+      return;
+    }
+
+    if (inEditor) return; // alle weiteren Shortcuts nur außerhalb von Editoren
+
+    switch (e.key) {
+
+      // N – Neue Notiz
+      case 'n':
+      case 'N':
+        e.preventDefault();
+        handleCreateNote({
+          content_front: 'Neue Notiz',
+          color:    '#f9e060',
+          size:     'm',
+          gridCol:  Math.floor(Math.random() * 3) + 1,
+          gridRow:  Math.floor(Math.random() * 3) + 1,
+          rotation: (Math.random() * 5) - 2.5
+        });
+        break;
+
+      // Delete / Backspace – Fokussierte Note löschen
+      case 'Delete':
+      case 'Backspace':
+        if (focusedNote && focusedElement) {
+          e.preventDefault();
+          activeContextNote    = focusedNote;
+          activeContextElement = focusedElement;
+          handleContextAction('delete');
+        }
+        break;
+
+      // F – Fokussierte Note umdrehen
+      case 'f':
+      case 'F':
+        if (focusedNote && focusedElement) {
+          e.preventDefault();
+          activeContextNote    = focusedNote;
+          activeContextElement = focusedElement;
+          handleContextAction('flip');
+        }
+        break;
+
+      // + / = – Zoom In
+      case '+':
+      case '=':
+        e.preventDefault();
+        setZoom(currentZoom + 0.1);
+        break;
+
+      // - – Zoom Out
+      case '-':
+        e.preventDefault();
+        setZoom(currentZoom - 0.1);
+        break;
+
+      // 0 – Zoom zurücksetzen
+      case '0':
+        e.preventDefault();
+        setZoom(1);
+        showToast('Zoom zurückgesetzt', 'info');
+        break;
+    }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', init);
