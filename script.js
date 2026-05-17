@@ -8,8 +8,8 @@
     
     // ==================== CONSTANTS ====================
     const CONFIG = {
-        NOTE_WIDTH: 200,
-        NOTE_HEIGHT: 200,
+        NOTE_WIDTH: 220,
+        NOTE_HEIGHT: 220,
         MIN_ZOOM: 0.1,
         MAX_ZOOM: 3,
         ZOOM_STEP: 0.1,
@@ -18,7 +18,17 @@
         DRAG_THRESHOLD: 5,
         LONG_PRESS_DELAY: 500,
         AUTO_SAVE_DELAY: 5000,
-        COLORS: ['#fef3c7', '#dbeafe', '#dcfce7', '#fce7f3', '#e0e7ff', '#fef9c3']
+        // Warme, natürliche Papierfarben im Da Vinci-Stil
+        COLORS: [
+            '#fef9e7',  // Warmes Cremegelb
+            '#f5f0e6',  // Naturweiß
+            '#e8f4f8',  // Helles Himmelblau
+            '#f0f7ee',  // Sanftes Salbeigrün
+            '#fdf2f5',  // Zartes Rosenpapier
+            '#f5f3ff',  // Lavendel
+            '#fffef5',  // Elfenbein
+            '#f9f5f0'   // Altweiß
+        ]
     };
     
     // ==================== STATE ====================
@@ -312,8 +322,15 @@
             height: ${note.height}px;
             background-color: ${note.color};
             z-index: ${note.zIndex || 1};
-            transform: rotate(${note.rotation || 0}deg);
+            --rotation: ${note.rotation || 0};
         `;
+
+        // Leichte zufällige Rotation für natürlichen Look (-2 bis +2 Grad)
+        if ((note.rotation === 0 || note.rotation === undefined) && !note.content) {
+            const randomRotation = (Math.random() - 0.5) * 4;
+            note.rotation = randomRotation;
+            el.style.setProperty('--rotation', randomRotation);
+        }
         
         el.innerHTML = `
             <div class="note-resize-handle" title="Größe ändern"></div>
