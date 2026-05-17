@@ -1,39 +1,46 @@
 // script.js
-import { fetchNotes, createNote, updateNote, deleteNote, showToast, startSync } from './api.js';
+import {
+  fetchNotes, createNote, updateNote, deleteNote,
+  fetchConnections, createConnection,
+  showToast, startSync
+} from './api.js';
 import { ConnectionsManager } from './connections.js';
 
 let notes = [];
 let currentZoom = 1;
 
-const canvas = document.getElementById('paper-canvas');
-const container = document.getElementById('canvas-container');
-const notesContainer = document.getElementById('notes-container');
-const contextMenu = document.getElementById('context-menu');
-const connectionsSvg = document.getElementById('connections-svg');
+const canvas          = document.getElementById('paper-canvas');
+const container       = document.getElementById('canvas-container');
+const notesContainer  = document.getElementById('notes-container');
+const contextMenu     = document.getElementById('context-menu');
+const connectionsSvg  = document.getElementById('connections-svg');
 
 const connManager = new ConnectionsManager(
   connectionsSvg,
   (id) => document.querySelector(`.note[data-id="${id}"]`)
 );
 
+// ─── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
   generateInkOverlays();
   setupToolbar();
   setupCanvasInteraction();
   setupContextMenu();
 
-  showToast('Synchronisiere Notes...', 'sync');
+  showToast('Lade Board...', 'sync');
+
+  // Phase 2: Notes + Connections aus localStorage laden
   notes = await fetchNotes();
+  const savedConnections = await fetchConnections();
 
   if (notes.length === 0) {
     await handleCreateNote({
-      content_front: "Willkommen beim Leonardo Board!\nEin Canvas für kreative Gedanken.",
-      content_back: "Die Rückseite für mehr Details.",
-      color: "#f9e9c8",
-      // Bug 1 Fix: "medium" → "m" damit size-m CSS-Klasse greift
-      size: "m",
-      gridCol: 2,
-      gridRow: 2,
+      content_front: 'Willkommen beim Leonardo Board!\nEin Canvas für kreative Gedanken.',
+      content_back:  'Die Rückseite für mehr Details.',
+      color:    '#f9e9c8',
+      size:     'm',
+      gridCol:  2,
+      gridRow:  2,
       rotation: (Math.random() * 5) - 2.5,
       isFlipped: false
     });
@@ -41,50 +48,53 @@ async function init() {
     notes.forEach(renderNote);
   }
 
-  startSync((updatedNotes) => { /* Sync Handler */ });
+  // Phase 2: Verbindungen aus Storage wiederherstellen
+  if (savedConnections.length > 0) {
+    connManager.loadSaved(savedConnections);
+  }
+
+  startSync(() => {});
 }
 
+// ─── Ink Overlays ─────────────────────────────────────────────────────────────
 function generateInkOverlays() {
   const layer2 = document.querySelector('.layer2.ink-splatters');
   const layer3 = document.querySelector('.layer3.ink-scratches');
 
   for (let i = 0; i < 45; i++) {
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circle.setAttribute('cx', `${Math.random() * 100}%`);
-    circle.setAttribute('cy', `${Math.random() * 100}%`);
-    circle.setAttribute('r', (Math.random() * 1.5 + 0.5).toString());
-    circle.setAttribute('fill', '#5a3c1e');
+    circle.setAttribute('cx',      `${Math.random() * 100}%`);
+    circle.setAttribute('cy',      `${Math.random() * 100}%`);
+    circle.setAttribute('r',       (Math.random() * 1.5 + 0.5).toString());
+    circle.setAttribute('fill',    '#5a3c1e');
     circle.setAttribute('opacity', (Math.random() * 0.05 + 0.04).toString());
     layer2.appendChild(circle);
   }
-
   for (let i = 0; i < 3; i++) {
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    const startX = Math.random() * 100;
-    const startY = Math.random() * 100;
-    path.setAttribute('d', `M ${startX}% ${startY}% Q ${startX + 10}% ${startY + 5}% ${startX + 30}% ${startY + 10}%`);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', '#5a3c1e');
+    const sx = Math.random() * 100, sy = Math.random() * 100;
+    path.setAttribute('d',            `M ${sx}% ${sy}% Q ${sx+10}% ${sy+5}% ${sx+30}% ${sy+10}%`);
+    path.setAttribute('fill',         'none');
+    path.setAttribute('stroke',       '#5a3c1e');
     path.setAttribute('stroke-width', '0.5');
-    path.setAttribute('opacity', '0.03');
+    path.setAttribute('opacity',      '0.03');
     layer3.appendChild(path);
   }
 }
 
+// ─── Toolbar ──────────────────────────────────────────────────────────────────
 function setupToolbar() {
   document.getElementById('btn-new-note').addEventListener('click', () => {
     handleCreateNote({
-      content_front: "Neue Notiz",
-      color: "#f9e060",
-      // Bug 1 Fix: einheitlich "m" statt "medium"
-      size: "m",
-      gridCol: Math.floor(Math.random() * 3) + 1,
-      gridRow: Math.floor(Math.random() * 3) + 1,
+      content_front: 'Neue Notiz',
+      color:    '#f9e060',
+      size:     'm',
+      gridCol:  Math.floor(Math.random() * 3) + 1,
+      gridRow:  Math.floor(Math.random() * 3) + 1,
       rotation: (Math.random() * 5) - 2.5
     });
   });
-
-  document.getElementById('btn-zoom-in').addEventListener('click', () => setZoom(currentZoom + 0.1));
+  document.getElementById('btn-zoom-in') .addEventListener('click', () => setZoom(currentZoom + 0.1));
   document.getElementById('btn-zoom-out').addEventListener('click', () => setZoom(currentZoom - 0.1));
 }
 
@@ -95,12 +105,12 @@ function setZoom(level) {
   connManager.updateLines();
 }
 
+// ─── Canvas Interaction ───────────────────────────────────────────────────────
 function setupCanvasInteraction() {
   canvas.addEventListener('mouseenter', () => canvas.classList.add('grid-active'));
   canvas.addEventListener('mouseleave', () => {
     if (!document.querySelector('.note.dragging')) canvas.classList.remove('grid-active');
   });
-
   container.addEventListener('wheel', (e) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -109,26 +119,29 @@ function setupCanvasInteraction() {
   }, { passive: false });
 }
 
+// ─── Create Note ──────────────────────────────────────────────────────────────
 async function handleCreateNote(data) {
   try {
     const note = await createNote(data);
     notes.push(note);
     renderNote(note);
-    showToast('Note erstellt', 'success');
+    showToast('Note erstellt ✨', 'success');
   } catch (error) {
+    console.error(error);
     showToast('Fehler beim Erstellen', 'error');
   }
 }
 
+// ─── Render Note ──────────────────────────────────────────────────────────────
 function renderNote(noteData) {
   const noteEl = document.createElement('div');
-  noteEl.className = `note size-${noteData.size || 'm'} ${noteData.isFlipped ? 'is-flipped' : ''}`;
+  noteEl.className  = `note size-${noteData.size || 'm'} ${noteData.isFlipped ? 'is-flipped' : ''}`;
   noteEl.dataset.id = noteData.id;
 
-  const cellSize = 200, gap = 24;
-  noteEl.style.left = `${(noteData.gridCol - 1) * (cellSize + gap)}px`;
-  noteEl.style.top = `${(noteData.gridRow - 1) * (cellSize + gap)}px`;
-  noteEl.style.transform = `rotate(${noteData.rotation || 0}deg)`;
+  const step = 224; // 200px cell + 24px gap
+  noteEl.style.left            = `${(noteData.gridCol - 1) * step}px`;
+  noteEl.style.top             = `${(noteData.gridRow - 1) * step}px`;
+  noteEl.style.transform       = `rotate(${noteData.rotation || 0}deg)`;
   noteEl.style.backgroundColor = noteData.color;
 
   if (['#2c3e50', '#1a2639', '#5d7a61'].includes(noteData.color)) {
@@ -146,7 +159,7 @@ function renderNote(noteData) {
         ${pinSvg}
         ${noteData.label ? `<div class="note-tag">${noteData.label}</div>` : ''}
         <div class="note-content front-content" contenteditable="true" spellcheck="false">${noteData.content_front || ''}</div>
-        <div class="note-date">${new Date(noteData.createdAt || Date.now()).toLocaleDateString()}</div>
+        <div class="note-date">${new Date(noteData.createdAt || Date.now()).toLocaleDateString('de-DE')}</div>
         <div class="note-resize-handle"></div>
       </div>
       <div class="note-back">
@@ -160,32 +173,37 @@ function renderNote(noteData) {
   setupNoteInteractions(noteEl, noteData);
 }
 
+// ─── Note Interactions (Drag + Save) ──────────────────────────────────────────
 function setupNoteInteractions(noteEl, noteData) {
-  let timeout;
+  // Auto-Save Inhalt
+  let saveTimeout;
   const saveContent = () => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
       updateNote(noteData.id, {
         content_front: noteEl.querySelector('.front-content').innerText,
-        content_back: noteEl.querySelector('.back-content').innerText
+        content_back:  noteEl.querySelector('.back-content').innerText
       });
     }, 800);
   };
-
   noteEl.querySelector('.front-content').addEventListener('input', saveContent);
-  noteEl.querySelector('.back-content').addEventListener('input', saveContent);
+  noteEl.querySelector('.back-content') .addEventListener('input', saveContent);
 
+  // Drag
   let isDragging = false, startX, startY, initialLeft, initialTop;
 
   noteEl.addEventListener('mousedown', (e) => {
-    if (e.target.closest('[contenteditable="true"]') || e.target.closest('.note-resize-handle') || e.button !== 0 || noteData.pinned) return;
+    if (e.target.closest('[contenteditable]') ||
+        e.target.closest('.note-resize-handle') ||
+        e.button !== 0 ||
+        noteData.pinned) return;
     isDragging = true;
     noteEl.classList.add('dragging');
     canvas.classList.add('grid-active');
     noteEl.style.zIndex = 100;
     startX = e.clientX; startY = e.clientY;
     initialLeft = parseFloat(noteEl.style.left) || 0;
-    initialTop = parseFloat(noteEl.style.top) || 0;
+    initialTop  = parseFloat(noteEl.style.top)  || 0;
     noteEl.style.transition = 'none';
     e.preventDefault();
   });
@@ -193,7 +211,7 @@ function setupNoteInteractions(noteEl, noteData) {
   window.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
     noteEl.style.left = `${initialLeft + (e.clientX - startX) / currentZoom}px`;
-    noteEl.style.top = `${initialTop + (e.clientY - startY) / currentZoom}px`;
+    noteEl.style.top  = `${initialTop  + (e.clientY - startY) / currentZoom}px`;
     connManager.updateLines();
   });
 
@@ -202,18 +220,18 @@ function setupNoteInteractions(noteEl, noteData) {
     isDragging = false;
     noteEl.classList.remove('dragging');
     canvas.classList.remove('grid-active');
-
     noteEl.style.transition = 'transform 400ms var(--ease-in-out), left 180ms var(--spring), top 180ms var(--spring)';
 
-    const step = 224;
-    let newCol = Math.max(1, Math.round(parseFloat(noteEl.style.left) / step) + 1);
-    let newRow = Math.max(1, Math.round(parseFloat(noteEl.style.top) / step) + 1);
-
-    noteEl.style.left = `${(newCol - 1) * step}px`;
-    noteEl.style.top = `${(newRow - 1) * step}px`;
-    noteEl.style.zIndex = '';
+    const step   = 224;
+    const newCol = Math.max(1, Math.round(parseFloat(noteEl.style.left) / step) + 1);
+    const newRow = Math.max(1, Math.round(parseFloat(noteEl.style.top)  / step) + 1);
+    noteEl.style.left    = `${(newCol - 1) * step}px`;
+    noteEl.style.top     = `${(newRow - 1) * step}px`;
+    noteEl.style.zIndex  = '';
     noteEl.style.transform = `rotate(${noteData.rotation}deg)`;
 
+    noteData.gridCol = newCol;
+    noteData.gridRow = newRow;
     updateNote(noteData.id, { gridCol: newCol, gridRow: newRow });
     setTimeout(() => connManager.updateLines(), 180);
   });
@@ -224,34 +242,33 @@ function setupNoteInteractions(noteEl, noteData) {
   });
 }
 
+// ─── Context Menu ─────────────────────────────────────────────────────────────
 let activeContextNote = null, activeContextElement = null;
 
 function setupContextMenu() {
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#context-menu')) contextMenu.classList.add('hidden');
   });
-
   contextMenu.addEventListener('click', (e) => {
-    const btn = e.target.closest('button');
+    const btn = e.target.closest('button[data-action]');
     if (btn && activeContextNote) {
-      handleContextAction(btn.dataset.action);
+      handleContextAction(btn.dataset.action, btn.dataset.color);
       contextMenu.classList.add('hidden');
     }
   });
 }
 
 function showContextMenu(x, y, noteData, noteEl) {
-  activeContextNote = noteData;
+  activeContextNote    = noteData;
   activeContextElement = noteEl;
   contextMenu.style.left = `${x}px`;
-  contextMenu.style.top = `${y}px`;
+  contextMenu.style.top  = `${y}px`;
   contextMenu.classList.remove('hidden');
-
   const pinBtn = contextMenu.querySelector('[data-action="pin"]');
   if (pinBtn) pinBtn.innerHTML = noteData.pinned ? '📌 Lösen' : '📌 Anheften';
 }
 
-function handleContextAction(action) {
+function handleContextAction(action, colorValue) {
   const data = activeContextNote, el = activeContextElement;
   switch (action) {
     case 'flip':
@@ -270,38 +287,50 @@ function handleContextAction(action) {
       }, 180);
       break;
 
-    case 'duplicate':
-      // Bug 5 Fix: content_back mit Fallback '', nicht undefined
+    case 'duplicate': {
       const copy = {
         ...data,
         content_back: data.content_back || '',
-        gridCol: data.gridCol + 1,
+        gridCol:  data.gridCol + 1,
         rotation: (Math.random() * 5) - 2.5
       };
       delete copy.id;
       handleCreateNote(copy);
       break;
+    }
 
-    case 'pin':
+    case 'pin': {
       data.pinned = !data.pinned;
       updateNote(data.id, { pinned: data.pinned });
-      // Bug 4 Fix: Pin-Icon live im DOM aktualisieren
       const front = el.querySelector('.note-front');
       const existingPin = front.querySelector('.note-pin');
       if (data.pinned && !existingPin) {
-        const pinSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        pinSvg.setAttribute('class', 'note-pin');
-        pinSvg.setAttribute('viewBox', '0 0 24 24');
-        pinSvg.setAttribute('fill', 'none');
-        pinSvg.setAttribute('stroke', '#e74c3c');
-        pinSvg.setAttribute('stroke-width', '2');
-        pinSvg.innerHTML = '<path d="M12 2L12 10M12 22L12 14M16 6H8M18 14H6M9 22L15 22"/>';
-        front.appendChild(pinSvg);
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class',        'note-pin');
+        svg.setAttribute('viewBox',      '0 0 24 24');
+        svg.setAttribute('fill',         'none');
+        svg.setAttribute('stroke',       '#e74c3c');
+        svg.setAttribute('stroke-width', '2');
+        svg.innerHTML = '<path d="M12 2L12 10M12 22L12 14M16 6H8M18 14H6M9 22L15 22"/>';
+        front.appendChild(svg);
       } else if (!data.pinned && existingPin) {
         existingPin.remove();
       }
       showToast(data.pinned ? 'Notiz angeheftet 📌' : 'Notiz gelöst', 'success');
       break;
+    }
+
+    // Phase 3a: Farbe ändern
+    case 'color': {
+      if (!colorValue) break;
+      data.color = colorValue;
+      el.style.backgroundColor = colorValue;
+      const darkColors = ['#2c3e50', '#1a2639', '#5d7a61'];
+      el.classList.toggle('dark-mode', darkColors.includes(colorValue));
+      updateNote(data.id, { color: colorValue });
+      showToast('Farbe geändert 🎨', 'success');
+      break;
+    }
   }
 }
 
