@@ -143,6 +143,8 @@ function setupToolbar() {
 function setZoom(level) {
   currentZoom = Math.max(0.6, Math.min(level, 1.5));
   document.getElementById('zoom-level').textContent = `${Math.round(currentZoom * 100)}%`;
+  // Phase 2: Zoom-Faktor für Grid als CSS-Variable setzen
+  canvas.style.setProperty('--zoom-factor', currentZoom.toString());
   canvas.style.transform = `scale(${currentZoom}) rotate(-0.3deg)`;
   connManager.updateLines();
 }
@@ -272,6 +274,9 @@ function setupNoteInteractions(noteEl, noteData) {
   // Phase 4a: Long-Press für Context Menu
   let longPressTimer = null;
   
+  // RequestAnimationFrame ID für Cleanup
+  let rafId = null;
+  
   // Event-Listener Referenzen für Cleanup
   let mouseMoveHandler = null;
   let mouseUpHandler = null;
@@ -291,7 +296,11 @@ function setupNoteInteractions(noteEl, noteData) {
     setFocus(noteData, noteEl);
     
     // Listener registrieren mit Referenz für späteres Cleanup
-    mouseMoveHandler = (e) => dragMove(e.clientX, e.clientY);
+    mouseMoveHandler = (e) => {
+      e.preventDefault();
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => dragMove(e.clientX, e.clientY));
+    };
     mouseUpHandler = () => {
       dragEnd();
       cleanupDragListeners();
@@ -303,10 +312,14 @@ function setupNoteInteractions(noteEl, noteData) {
   function cleanupDragListeners() {
     if (mouseMoveHandler) window.removeEventListener('mousemove', mouseMoveHandler);
     if (mouseUpHandler) window.removeEventListener('mouseup', mouseUpHandler);
+    if (rafId) cancelAnimationFrame(rafId);
     mouseMoveHandler = null;
     mouseUpHandler = null;
+    rafId = null;
   }
 
+  // Throttle für Connection-Updates (alle 16ms ≈ 60fps)
+  let lastConnUpdate = 0;
   function dragMove(clientX, clientY) {
     if (!isDragging) return;
     // Zoom-Korrektur: Bewegung direkt anwenden, dann durch Zoom teilen für korrekte Skalierung
@@ -314,7 +327,13 @@ function setupNoteInteractions(noteEl, noteData) {
     const deltaY = (clientY - startY);
     noteEl.style.left = `${initialLeft + (deltaX / currentZoom)}px`;
     noteEl.style.top  = `${initialTop  + (deltaY / currentZoom)}px`;
-    connManager.updateLines();
+    
+    // Connection-Updates throttlen für bessere Performance
+    const now = performance.now();
+    if (now - lastConnUpdate > 16) {
+      connManager.updateLines();
+      lastConnUpdate = now;
+    }
   }
 
   function dragEnd() {
@@ -409,6 +428,9 @@ function setupResizeInteraction(noteEl, noteData) {
   let isResizing = false;
   let startX, startY, startW, startH;
   
+  // RequestAnimationFrame ID für Cleanup
+  let resizeRafId = null;
+  
   // Event-Listener Referenzen für Cleanup
   let resizeMouseMoveHandler = null;
   let resizeMouseUpHandler = null;
@@ -423,7 +445,11 @@ function setupResizeInteraction(noteEl, noteData) {
     ['size-s','size-m','size-l','size-xl'].forEach(c => noteEl.classList.remove(c));
     
     // Listener registrieren mit Referenz für späteres Cleanup
-    resizeMouseMoveHandler = (e) => resizeMove(e.clientX, e.clientY);
+    resizeMouseMoveHandler = (e) => {
+      e.preventDefault();
+      if (resizeRafId) cancelAnimationFrame(resizeRafId);
+      resizeRafId = requestAnimationFrame(() => resizeMove(e.clientX, e.clientY));
+    };
     resizeMouseUpHandler = () => {
       resizeEnd();
       cleanupResizeListeners();
@@ -435,17 +461,27 @@ function setupResizeInteraction(noteEl, noteData) {
   function cleanupResizeListeners() {
     if (resizeMouseMoveHandler) window.removeEventListener('mousemove', resizeMouseMoveHandler);
     if (resizeMouseUpHandler) window.removeEventListener('mouseup', resizeMouseUpHandler);
+    if (resizeRafId) cancelAnimationFrame(resizeRafId);
     resizeMouseMoveHandler = null;
     resizeMouseUpHandler = null;
+    resizeRafId = null;
   }
 
+  // Throttle für Connection-Updates (alle 16ms ≈ 60fps)
+  let resizeLastConnUpdate = 0;
   function resizeMove(clientX, clientY) {
     if (!isResizing) return;
     const dx   = (clientX - startX) / currentZoom;
     const dy   = (clientY - startY) / currentZoom;
     noteEl.style.width  = `${Math.max(120, startW + dx)}px`;
     noteEl.style.height = `${Math.max(120, startH + dy)}px`;
-    connManager.updateLines();
+    
+    // Connection-Updates throttlen für bessere Performance
+    const now = performance.now();
+    if (now - resizeLastConnUpdate > 16) {
+      connManager.updateLines();
+      resizeLastConnUpdate = now;
+    }
   }
 
   function resizeEnd() {
