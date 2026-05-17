@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Leonardo Board</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Bug 6 Fix: SF Pro Display ist kein Google Font – nur Caveat laden -->
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -38,10 +37,8 @@
       </svg>
       <svg class="overlay-svg layer2 ink-splatters" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"></svg>
       <svg class="overlay-svg layer3 ink-scratches" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"></svg>
-      
       <div class="book-spine"></div>
       <div id="grid-overlay"></div>
-      
       <svg id="connections-svg" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -49,17 +46,36 @@
           </marker>
         </defs>
       </svg>
-
       <div id="notes-container"></div>
     </div>
   </div>
 
+  <!-- Context Menu mit Farbpicker (Phase 3a) -->
   <div id="context-menu" class="context-menu hidden">
     <button data-action="edit">✎ Bearbeiten</button>
     <button data-action="duplicate">⊕ Duplizieren</button>
     <button data-action="flip">↩ Umdrehen</button>
     <button data-action="connect">⊟ Verbinden mit...</button>
     <button data-action="pin">📌 Anheften / Lösen</button>
+    <div class="menu-separator"></div>
+    <!-- Farbpalette -->
+    <div class="color-picker-label">🎨 Farbe</div>
+    <div class="color-picker-row">
+      <button class="color-swatch" data-action="color" data-color="#f9e9c8" style="background:#f9e9c8" title="Pergament"></button>
+      <button class="color-swatch" data-action="color" data-color="#f9e060" style="background:#f9e060" title="Sonnig"></button>
+      <button class="color-swatch" data-action="color" data-color="#aed6f1" style="background:#aed6f1" title="Himmel"></button>
+      <button class="color-swatch" data-action="color" data-color="#a9dfbf" style="background:#a9dfbf" title="Salbei"></button>
+      <button class="color-swatch" data-action="color" data-color="#f1948a" style="background:#f1948a" title="Rose"></button>
+      <button class="color-swatch" data-action="color" data-color="#c39bd3" style="background:#c39bd3" title="Lavendel"></button>
+    </div>
+    <div class="color-picker-row">
+      <button class="color-swatch" data-action="color" data-color="#f0b27a" style="background:#f0b27a" title="Bernstein"></button>
+      <button class="color-swatch" data-action="color" data-color="#fdfefe" style="background:#fdfefe" title="Kreide"></button>
+      <button class="color-swatch" data-action="color" data-color="#c0725a" style="background:#c0725a" title="Terracotta"></button>
+      <button class="color-swatch" data-action="color" data-color="#2c3e50" style="background:#2c3e50" title="Mitternacht"></button>
+      <button class="color-swatch" data-action="color" data-color="#1a2639" style="background:#1a2639" title="Tinte"></button>
+      <button class="color-swatch" data-action="color" data-color="#5d7a61" style="background:#5d7a61" title="Moos"></button>
+    </div>
     <div class="menu-separator"></div>
     <button data-action="delete" class="danger">✕ Löschen</button>
   </div>
