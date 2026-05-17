@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Leonardo Board - Professional Sticky Notes</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Toolbar -->
+    <div class="toolbar" role="toolbar" aria-label="Werkzeugleiste">
+        <button class="tool-btn" id="btn-add-note" title="Note hinzufügen (N)" aria-label="Neue Note hinzufügen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14"/>
+            </svg>
+        </button>
+        <button class="tool-btn" id="btn-grid-toggle" title="Grid ein/aus (G)" aria-label="Grid umschalten">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+            </svg>
+        </button>
+        <button class="tool-btn" id="btn-zoom-in" title="Vergrößern" aria-label="Vergrößern">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/>
+            </svg>
+        </button>
+        <button class="tool-btn" id="btn-zoom-out" title="Verkleinern" aria-label="Verkleinern">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-4.35-4.35M8 11h6"/>
+            </svg>
+        </button>
+        <button class="tool-btn" id="btn-zoom-reset" title="Zoom zurücksetzen" aria-label="Zoom zurücksetzen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+            </svg>
+        </button>
+        <div class="toolbar-separator"></div>
+        <button class="tool-btn" id="btn-undo" title="Rückgängig (Ctrl+Z)" aria-label="Rückgängig" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 7v6h6"/>
+                <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+            </svg>
+        </button>
+        <button class="tool-btn" id="btn-redo" title="Wiederherstellen (Ctrl+Y)" aria-label="Wiederherstellen" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 7v6h-6"/>
+                <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 3.7"/>
+            </svg>
+        </button>
+        <div class="toolbar-separator"></div>
+        <button class="tool-btn" id="btn-save" title="Speichern (Ctrl+S)" aria-label="Speichern">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+            </svg>
+        </button>
+        <span class="zoom-indicator" id="zoom-indicator">100%</span>
+    </div>
+
+    <!-- Main Canvas Area -->
+    <div class="canvas-container" id="canvas-container">
+        <div class="paper-canvas" id="paper-canvas" role="application" aria-label="Zeichenfläche">
+            <!-- Grid Overlay -->
+            <div class="grid-overlay" id="grid-overlay"></div>
+            
+            <!-- SVG Connections Layer -->
+            <svg class="connections-layer" id="connections-layer" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+                    </marker>
+                </defs>
+                <g id="connections-group"></g>
+            </svg>
+            
+            <!-- Notes Container -->
+            <div class="notes-container" id="notes-container"></div>
+            
+            <!-- Pan Indicator -->
+            <div class="pan-indicator" id="pan-indicator" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="context-menu" role="menu" aria-hidden="true">
+        <div class="context-menu-item" data-action="edit" role="menuitem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Bearbeiten
+        </div>
+        <div class="context-menu-item" data-action="duplicate" role="menuitem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Duplizieren
+        </div>
+        <div class="context-menu-item" data-action="connect" role="menuitem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="5" r="3"/>
+                <circle cx="12" cy="19" r="3"/>
+                <line x1="12" y1="8" x2="12" y2="16"/>
+            </svg>
+            Verbinden
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item danger" data-action="delete" role="menuitem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            Löschen
+        </div>
+    </div>
+
+    <!-- Connection Mode Indicator -->
+    <div class="connection-mode-indicator" id="connection-mode-indicator" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="5" r="3"/>
+            <circle cx="12" cy="19" r="3"/>
+            <line x1="12" y1="8" x2="12" y2="16"/>
+        </svg>
+        <span>Klick auf zweite Note zum Verbinden</span>
+        <button class="close-btn" id="btn-cancel-connect" aria-label="Verbindungsmodus abbrechen">×</button>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+    <!-- Hidden File Input for Import -->
+    <input type="file" id="file-import" accept=".json" hidden>
+
+    <script src="state-manager.js"></script>
+    <script src="connections.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
