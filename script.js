@@ -149,11 +149,44 @@ function setZoom(level) {
   connManager.updateLines();
 }
 
-// ─── Canvas Interaction (Mouse Wheel + Phase 4a: Pinch-Zoom) ─────────────────────
+// ─── Canvas Interaction (Mouse Wheel + Phase 4a: Pinch-Zoom + Phase 3: Panning) ─────────────────────
+let isPanning = false;
+let panStartX = 0, panStartY = 0;
+let canvasTranslateX = 0, canvasTranslateY = 0;
+
 function setupCanvasInteraction() {
   canvas.addEventListener('mouseenter', () => canvas.classList.add('grid-active'));
   canvas.addEventListener('mouseleave', () => {
     if (!document.querySelector('.note.dragging')) canvas.classList.remove('grid-active');
+  });
+
+  // Phase 3: Panning mit Middle-Click oder Space+Drag
+  container.addEventListener('mousedown', (e) => {
+    // Middle-Click oder Space-Taste gedrückt → Panning starten
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+      e.preventDefault();
+      isPanning = true;
+      canvas.classList.add('panning');
+      panStartX = e.clientX - canvasTranslateX;
+      panStartY = e.clientY - canvasTranslateY;
+      
+      const panMouseMove = (ev) => {
+        ev.preventDefault();
+        canvasTranslateX = ev.clientX - panStartX;
+        canvasTranslateY = ev.clientY - panStartY;
+        updateCanvasTransform();
+      };
+      
+      const panMouseUp = () => {
+        isPanning = false;
+        canvas.classList.remove('panning');
+        window.removeEventListener('mousemove', panMouseMove);
+        window.removeEventListener('mouseup', panMouseUp);
+      };
+      
+      window.addEventListener('mousemove', panMouseMove, { passive: false });
+      window.addEventListener('mouseup', panMouseUp, { passive: false });
+    }
   });
 
   // Mouse Wheel Zoom
@@ -161,6 +194,12 @@ function setupCanvasInteraction() {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       setZoom(currentZoom + (e.deltaY > 0 ? -0.05 : 0.05));
+    } else if (!e.target.closest('.note')) {
+      // Ohne Ctrl/Meta → Canvas pannen mit Mausrad
+      e.preventDefault();
+      canvasTranslateX -= e.deltaX;
+      canvasTranslateY -= e.deltaY;
+      updateCanvasTransform();
     }
   }, { passive: false });
 
@@ -173,6 +212,14 @@ function setupCanvasInteraction() {
       pinchStartDist = getTouchDistance(e);
       pinchStartZoom = currentZoom;
       e.preventDefault();
+    } else if (e.touches.length === 1 && !e.target.closest('.note')) {
+      // Single Touch auf Canvas → Panning starten
+      isPanning = true;
+      canvas.classList.add('panning');
+      const touch = getCoords(e);
+      panStartX = touch.clientX - canvasTranslateX;
+      panStartY = touch.clientY - canvasTranslateY;
+      e.preventDefault();
     }
   }, { passive: false });
 
@@ -182,19 +229,33 @@ function setupCanvasInteraction() {
       const scale   = newDist / pinchStartDist;
       setZoom(pinchStartZoom * scale);
       e.preventDefault();
+    } else if (e.touches.length === 1 && isPanning) {
+      const touch = getCoords(e);
+      canvasTranslateX = touch.clientX - panStartX;
+      canvasTranslateY = touch.clientY - panStartY;
+      updateCanvasTransform();
+      e.preventDefault();
     }
   }, { passive: false });
 
   container.addEventListener('touchend', (e) => {
     if (e.touches.length < 2) pinchStartDist = null;
+    if (e.touches.length === 0 && isPanning) {
+      isPanning = false;
+      canvas.classList.remove('panning');
+    }
   });
 
-  // Canvas-Klick → Fokus aufheben
+  // Canvas-Klick → Fokus aufheben (nur wenn nicht gepannt wurde)
   canvas.addEventListener('click', (e) => {
-    if (!e.target.closest('.note') && !e.target.closest('#context-menu')) {
+    if (!e.target.closest('.note') && !e.target.closest('#context-menu') && !isPanning) {
       clearFocus();
     }
   });
+}
+
+function updateCanvasTransform() {
+  canvas.style.transform = `translate(${canvasTranslateX}px, ${canvasTranslateY}px) scale(${currentZoom}) rotate(-0.3deg)`;
 }
 
 // ─── Create Note ──────────────────────────────────────────────────────────────
@@ -320,6 +381,8 @@ function setupNoteInteractions(noteEl, noteData) {
 
   // Throttle für Connection-Updates (alle 16ms ≈ 60fps)
   let lastConnUpdate = 0;
+  let lastSnapCol = -1, lastSnapRow = -1;
+  
   function dragMove(clientX, clientY) {
     if (!isDragging) return;
     // Zoom-Korrektur: Bewegung direkt anwenden, dann durch Zoom teilen für korrekte Skalierung
@@ -327,6 +390,28 @@ function setupNoteInteractions(noteEl, noteData) {
     const deltaY = (clientY - startY);
     noteEl.style.left = `${initialLeft + (deltaX / currentZoom)}px`;
     noteEl.style.top  = `${initialTop  + (deltaY / currentZoom)}px`;
+    
+    // Phase 3: Snap-Feedback während Drag – visuelle Hilfe beim Ausrichten
+    const step   = 224;
+    const currentLeft = parseFloat(noteEl.style.left) || 0;
+    const currentTop  = parseFloat(noteEl.style.top)  || 0;
+    const newCol = Math.max(1, Math.round(currentLeft / step) + 1);
+    const newRow = Math.max(1, Math.round(currentTop  / step) + 1);
+    
+    // Nur updaten wenn sich das Snap-Ziel geändert hat (Performance)
+    if (newCol !== lastSnapCol || newRow !== lastSnapRow) {
+      lastSnapCol = newCol;
+      lastSnapRow = newRow;
+      // Kleines visuelles Feedback – Note leicht an Snap-Position andeuten
+      const snapLeft = (newCol - 1) * step;
+      const snapTop  = (newRow - 1) * step;
+      const distToSnap = Math.hypot(currentLeft - snapLeft, currentTop - snapTop);
+      // Wenn sehr nah am Snap-Punkt (< 30px), Note magnetisch einrasten lassen
+      if (distToSnap < 30) {
+        noteEl.style.left = `${snapLeft}px`;
+        noteEl.style.top  = `${snapTop}px`;
+      }
+    }
     
     // Connection-Updates throttlen für bessere Performance
     const now = performance.now();
@@ -357,6 +442,11 @@ function setupNoteInteractions(noteEl, noteData) {
     noteData.gridCol = newCol;
     noteData.gridRow = newRow;
     updateNote(noteData.id, { gridCol: newCol, gridRow: newRow });
+    
+    // Snap-Feedback Reset
+    lastSnapCol = -1;
+    lastSnapRow = -1;
+    
     setTimeout(() => connManager.updateLines(), 180);
   }
 
@@ -496,7 +586,13 @@ function setupResizeInteraction(noteEl, noteData) {
     noteData.size = snapped;
     updateNote(noteData.id, { size: snapped });
     showToast(`Größe: ${snapped.toUpperCase()}`, 'info');
-    setTimeout(() => connManager.updateLines(), 50);
+    
+    // Phase 3: Resize-Feedback mit kleinem Pulse-Effekt
+    noteEl.style.boxShadow = '0 0 0 2px rgba(101,67,33,0.4), 2px 4px 12px rgba(0,0,0,0.18)';
+    setTimeout(() => {
+      noteEl.style.boxShadow = '';
+      connManager.updateLines();
+    }, 300);
   }
 
   // Mouse
