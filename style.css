@@ -19,13 +19,15 @@
     --color-paper: #faf6f1;
     --color-paper-aged: #f0e6d8;
     
-    /* Note Colors - Natürliche, warme Töne */
-    --note-yellow: #fef9e7;
-    --note-blue: #e8f4f8;
-    --note-green: #f0f7ee;
-    --note-pink: #fdf2f5;
-    --note-lavender: #f5f3ff;
-    --note-cream: #fffef5;
+    /* Note Colors - Authentische Da Vinci Papiertöne */
+    --note-yellow: #fdf6e3;    /* Warmes Cremegelb */
+    --note-blue: #e3f2fd;      /* Helles Himmelblau */
+    --note-green: #f1f8e9;     /* Salbei-Grün */
+    --note-pink: #fce4ec;      /* Altrosa */
+    --note-lavender: #f3e5f5;  /* Lavendel */
+    --note-cream: #fffdd0;     /* Elfenbein */
+    --note-sage: #e8f5e9;      /* Salbei */
+    --note-peach: #fff3e0;     /* Pfirsich */
     
     /* Shadows - Weich, natürlich */
     --shadow-sm: 0 1px 3px rgba(44, 24, 16, 0.08);
@@ -70,7 +72,7 @@ html, body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* ==================== PAPER CANVAS - DA VINCI STYLE ==================== */
+/* ==================== PAPER CANVAS - DA VINCI MEISTERWERK ==================== */
 .canvas-container {
     position: absolute;
     top: 60px;
@@ -78,10 +80,7 @@ html, body {
     right: 0;
     bottom: 0;
     overflow: hidden;
-    background: 
-        /* Subtile Textur für Papier-Gefühl */
-        radial-gradient(ellipse at center, transparent 0%, rgba(180,160,140,0.03) 100%),
-        var(--color-paper-aged);
+    background: #2c1810; /* Dunkler Hintergrund für Kontrast */
     cursor: default;
 }
 
@@ -93,20 +92,37 @@ html, body {
     height: 100%;
     transform-origin: 0 0;
     will-change: transform;
-    /* Authentische Papier-Textur mit leichten Unregelmäßigkeiten */
+    
+    /* Authentisches Leonardo-Papier: Warmes Büttenpapier mit Struktur */
     background: 
-        /* Leichte Alterung an den Rändern */
-        radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(180,160,140,0.08) 100%),
-        /* Subtile Faser-Struktur */
+        /* Vignette: Dunklere Ränder wie gealtertes Papier */
+        radial-gradient(ellipse at center, transparent 50%, rgba(60, 40, 20, 0.3) 100%),
+        
+        /* Subtile Faser-Textur (horizontal) */
         repeating-linear-gradient(
             90deg,
             transparent,
-            transparent 2px,
-            rgba(180,160,140,0.02) 2px,
-            rgba(180,160,140,0.02) 4px
+            transparent 3px,
+            rgba(94, 58, 32, 0.04) 3px,
+            rgba(94, 58, 32, 0.04) 5px
         ),
-        var(--color-paper);
-    box-shadow: var(--shadow-paper);
+        
+        /* Subtile Faser-Textur (vertikal) */
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 3px,
+            rgba(94, 58, 32, 0.03) 3px,
+            rgba(94, 58, 32, 0.03) 5px
+        ),
+        
+        /* Grundfarbe: Warmes Cremepapier mit rötlichem Stich */
+        linear-gradient(135deg, #e8dccf 0%, #dcbfa8 50%, #c4a48b 100%);
+    
+    box-shadow: 
+        0 1px 3px rgba(0,0,0,0.1),
+        0 10px 30px rgba(60, 40, 20, 0.25),
+        inset 0 0 80px rgba(60, 40, 20, 0.15);
     cursor: grab;
 }
 
@@ -114,7 +130,7 @@ html, body {
     cursor: grabbing;
 }
 
-/* Canvas Border - wie ein echtes Blatt */
+/* Canvas Border - Organisch, wie handgeschöpftes Papier mit unregelmäßigen Rändern */
 .paper-canvas::before {
     content: '';
     position: absolute;
@@ -122,9 +138,29 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    border: 1px solid rgba(180,160,140,0.2);
+    border: 1px solid rgba(94, 58, 32, 0.15);
     pointer-events: none;
-    opacity: 0.5;
+    opacity: 0.6;
+    box-shadow: inset 0 0 20px rgba(94, 58, 32, 0.05);
+}
+
+/* Zusätzliche organische Textur für mehr Authentizität */
+.paper-canvas::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Subtile Flecken und Unregelmäßigkeiten wie echtes Büttenpapier */
+    background-image: 
+        radial-gradient(circle at 15% 30%, rgba(94, 58, 32, 0.03) 0%, transparent 2%),
+        radial-gradient(circle at 78% 45%, rgba(94, 58, 32, 0.02) 0%, transparent 3%),
+        radial-gradient(circle at 42% 72%, rgba(94, 58, 32, 0.025) 0%, transparent 2.5%),
+        radial-gradient(circle at 85% 18%, rgba(94, 58, 32, 0.02) 0%, transparent 2%);
+    pointer-events: none;
+    opacity: 0.4;
+    mix-blend-mode: multiply;
 }
 
 /* ==================== TOOLBAR ==================== */
@@ -199,7 +235,7 @@ html, body {
 /* ==================== CANVAS CONTAINER (Legacy - remove duplicate) ==================== */
 /* Diese Section kann entfernt werden da oben bereits definiert */
 
-/* ==================== GRID OVERLAY ==================== */
+/* ==================== GRID OVERLAY - DA VINCI PUNKTRASTER ==================== */
 .grid-overlay {
     position: absolute;
     top: 0;
@@ -209,18 +245,22 @@ html, body {
     pointer-events: none;
     opacity: 0;
     transition: opacity var(--transition-normal);
-    /* Da Vinci Grid - Punktraster statt Linien */
+    
+    /* Da Vinci Grid - Rotes Kreide-Punktraster wie in Leonardos Skizzenbüchern */
     background-image: 
-        radial-gradient(circle, var(--grid-color) var(--grid-dot-size), transparent var(--grid-dot-size));
+        radial-gradient(circle, var(--grid-dot-color) 1.5px, transparent 2px);
     background-size: var(--grid-cell) var(--grid-cell);
     background-position: 0 0;
+    
+    /* Leichter Sepia-Ton für Authentizität */
+    filter: sepia(0.3);
 }
 
 .grid-overlay.grid-active {
-    opacity: 1;
+    opacity: 0.7; /* Etwas sichtbarer für bessere Orientierung */
 }
 
-/* Dynamisches Grid bei Zoom */
+/* Dynamisches Grid bei Zoom - skaliert natürlich mit */
 .paper-canvas.zoomed .grid-overlay {
     background-size: calc(var(--grid-cell) * var(--zoom-factor, 1)) calc(var(--grid-cell) * var(--zoom-factor, 1));
 }
@@ -235,38 +275,52 @@ html, body {
     pointer-events: none;
 }
 
-/* ==================== NOTES - DA VINCI STYLE ==================== */
+/* ==================== NOTES - DA VINCI PAPIER-ZETTEL ==================== */
 .note {
     position: absolute;
     display: flex;
     flex-direction: column;
-    /* Authentisches Papier mit warmer Farbe */
+    
+    /* Authentisches Papier mit warmer Farbe und Textur */
     background: var(--note-yellow);
-    border-radius: var(--radius-md);
-    /* Mehrschichtiger Schatten für Tiefe */
+    border-radius: 2px; /* Weniger perfekt, mehr organisch */
+    
+    /* Mehrschichtiger Schatten für echte Papier-Tiefe */
     box-shadow: 
-        0 1px 2px rgba(44, 24, 16, 0.05),
-        0 4px 8px rgba(44, 24, 16, 0.08),
-        0 12px 24px rgba(44, 24, 16, 0.06);
+        0 1px 3px rgba(60, 40, 20, 0.08),
+        0 6px 16px rgba(60, 40, 20, 0.12),
+        0 14px 32px rgba(60, 40, 20, 0.08),
+        inset 0 0 30px rgba(180, 160, 140, 0.05);
+    
     transition: box-shadow var(--transition-normal), transform var(--transition-fast);
     pointer-events: auto;
     will-change: left, top, width, height, transform;
     overflow: hidden;
     user-select: none;
-    /* Leichte Rotation für natürlichen Look */
+    
+    /* Leichte zufällige Rotation für natürlichen Look (-2° bis +2°) */
     transform: rotate(calc(var(--rotation, 0) * 1deg));
-    /* Subtile Textur */
+    
+    /* Subtile Papier-Textur mit horizontalen Fasern */
     background-image: 
+        /* Horizontale Faser-Linien */
+        repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 2px,
+            rgba(94, 58, 32, 0.02) 2px,
+            rgba(94, 58, 32, 0.02) 4px
+        ),
+        /* Leichte Vergilbung von unten */
         linear-gradient(
             to bottom,
-            transparent 95%,
-            rgba(180, 160, 140, 0.03) 95%,
-            rgba(180, 160, 140, 0.03) 100%
+            transparent 70%,
+            rgba(180, 160, 140, 0.08) 100%
         );
-    background-size: 100% 3em;
+    background-size: 100% 100%;
 }
 
-/* Organische Ecken - nicht zu perfekt */
+/* Organische Ecken und subtile Unregelmäßigkeiten */
 .note::before {
     content: '';
     position: absolute;
@@ -275,32 +329,55 @@ html, body {
     right: 0;
     bottom: 0;
     border-radius: inherit;
-    box-shadow: inset 0 0 20px rgba(180, 160, 140, 0.05);
+    /* Subtle texture variation */
+    box-shadow: 
+        inset 0 0 25px rgba(94, 58, 32, 0.06),
+        inset 0 2px 4px rgba(255, 255, 255, 0.3);
     pointer-events: none;
+    opacity: 0.7;
+}
+
+/* Leichte Unregelmäßigkeit an den Rändern simulieren */
+.note::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: inherit;
+    background: 
+        radial-gradient(circle at 20% 30%, rgba(94, 58, 32, 0.02) 0%, transparent 3%),
+        radial-gradient(circle at 80% 70%, rgba(94, 58, 32, 0.015) 0%, transparent 2%);
+    pointer-events: none;
+    opacity: 0.5;
 }
 
 .note:hover {
     box-shadow: 
-        0 2px 4px rgba(44, 24, 16, 0.08),
-        0 8px 16px rgba(44, 24, 16, 0.12),
-        0 20px 40px rgba(44, 24, 16, 0.1);
-    transform: scale(1.01) rotate(calc(var(--rotation, 0) * 1deg));
+        0 2px 5px rgba(60, 40, 20, 0.1),
+        0 10px 20px rgba(60, 40, 20, 0.15),
+        0 24px 48px rgba(60, 40, 20, 0.12),
+        inset 0 0 30px rgba(180, 160, 140, 0.08);
+    transform: scale(1.02) rotate(calc(var(--rotation, 0) * 1deg));
 }
 
 .note.selected {
     box-shadow: 
         0 0 0 2px var(--color-primary),
-        0 4px 12px rgba(44, 24, 16, 0.15),
-        0 12px 28px rgba(44, 24, 16, 0.1);
+        0 6px 16px rgba(60, 40, 20, 0.18),
+        0 16px 36px rgba(60, 40, 20, 0.12),
+        inset 0 0 30px rgba(196, 165, 116, 0.1);
 }
 
 .note.dragging {
     box-shadow: 
-        0 8px 24px rgba(44, 24, 16, 0.2),
-        0 16px 48px rgba(44, 24, 16, 0.15);
+        0 12px 32px rgba(60, 40, 20, 0.25),
+        0 20px 60px rgba(60, 40, 20, 0.2),
+        0 32px 80px rgba(60, 40, 20, 0.15);
     cursor: grabbing;
-    opacity: 0.95;
-    transform: scale(1.02) rotate(calc(var(--rotation, 0) * 1deg));
+    opacity: 0.97;
+    transform: scale(1.03) rotate(calc(var(--rotation, 0) * 1deg));
 }
 
 .note.resizing {
@@ -346,53 +423,65 @@ html, body {
     position: absolute;
     bottom: 0;
     right: 0;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     cursor: se-resize;
-    /* Organischer Resize-Handle */
+    
+    /* Organischer Resize-Handle - wie ein Siegel oder Stempel */
     background: radial-gradient(
         circle at 70% 70%,
-        var(--color-primary) 0%,
-        var(--color-primary-hover) 60%,
-        transparent 60%
+        #a94442 0%,      /* Rote Kreide-Farbe */
+        #8b3a3a 60%,
+        transparent 65%
     );
     opacity: 0;
     transition: opacity var(--transition-fast), transform var(--transition-fast);
-    border-bottom-right-radius: var(--radius-md);
+    border-bottom-right-radius: inherit;
+    
+    /* Leichter Schatten für Tiefe */
+    box-shadow: 1px 1px 3px rgba(60, 40, 20, 0.2);
 }
 
 .note:hover .note-resize-handle {
-    opacity: 0.6;
+    opacity: 0.7;
 }
 
 .note-resize-handle:hover {
     opacity: 1;
-    transform: scale(1.1);
+    transform: scale(1.15);
+    box-shadow: 2px 2px 6px rgba(60, 40, 20, 0.3);
 }
 
 /* ==================== NOTE CONTENT - HANDGESCHRIEBENER LOOK ==================== */
 .note-content {
     flex: 1;
     width: 100%;
-    padding: 18px 16px;
+    padding: 20px 18px;
     border: none;
     background: transparent;
     resize: none;
-    /* Serif-Schrift für klassischen Look */
-    font-family: 'Georgia', 'Palatino Linotype', serif;
+    
+    /* Serif-Schrift für klassischen Look wie Da Vincis Handschrift */
+    font-family: 'Georgia', 'Palatino Linotype', 'Times New Roman', serif;
     font-size: 15px;
     line-height: 1.7;
-    color: var(--color-text);
+    color: #3e2723; /* Dunkle Eisengallus-Tinte */
     outline: none;
     user-select: text;
-    /* Leichte Textur wie Tinte auf Papier */
-    text-shadow: 0 0 1px rgba(44, 24, 16, 0.1);
+    
+    /* Leichte Textur wie Tinte auf Papier mit natürlichem Verlauf */
+    text-shadow: 0 1px 1px rgba(62, 39, 35, 0.15);
+    
+    /* Tinten-ähnliche Darstellung */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 .note-content::placeholder {
-    color: var(--color-text-muted);
+    color: #5d4037; /* Verblassende Tinte */
     font-style: italic;
-    opacity: 0.7;
+    opacity: 0.6;
+    font-weight: normal;
 }
 
 /* ==================== CONNECTIONS LAYER ==================== */
@@ -408,26 +497,30 @@ html, body {
 
 .connection-line {
     fill: none;
-    /* Warme Verbindungslinie */
-    stroke: #8b7355;
-    stroke-width: 2;
+    /* Rote Kreide-Linie wie in Da Vincis Skizzen */
+    stroke: #a94442;
+    stroke-width: 1.5;
     stroke-linecap: round;
     pointer-events: stroke;
     cursor: pointer;
     transition: stroke var(--transition-fast), stroke-width var(--transition-fast), opacity var(--transition-fast);
-    opacity: 0.7;
+    opacity: 0.6;
+    
+    /* Leichter Tinten-Verlauf für organischen Look */
+    stroke-dasharray: none;
 }
 
 .connection-line:hover {
-    stroke: var(--color-primary);
-    stroke-width: 3;
-    opacity: 1;
+    stroke: #8b3a3a;
+    stroke-width: 2.5;
+    opacity: 0.9;
 }
 
 .connection-line.selected {
-    stroke: var(--color-primary);
-    stroke-width: 3;
+    stroke: #8b3a3a;
+    stroke-width: 2.5;
     opacity: 1;
+    stroke-dasharray: 4, 3; /* Gestrichelt bei Auswahl */
 }
 
 /* ==================== CONTEXT MENU ==================== */
