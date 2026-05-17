@@ -32,6 +32,15 @@
 
   <div id="canvas-container">
     <div id="paper-canvas">
+      <!-- SVG-Filter für handgezeichneten Grid-Look -->
+      <svg style="position:absolute;width:0;height:0;pointer-events:none;">
+        <defs>
+          <filter id="grid-distortion">
+            <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" result="noise"/>
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+        </defs>
+      </svg>
       <svg class="overlay-svg layer1" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
         <rect x="2%" y="2%" width="96%" height="96%" fill="none" stroke="rgba(90,60,30,0.12)" stroke-width="1.5" rx="4" />
       </svg>

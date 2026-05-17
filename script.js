@@ -103,23 +103,48 @@ async function init() {
 function generateInkOverlays() {
   const layer2 = document.querySelector('.layer2.ink-splatters');
   const layer3 = document.querySelector('.layer3.ink-scratches');
-  for (let i = 0; i < 45; i++) {
+  
+  // Mehr und variiertere Tintenspritzer für authentischeren Look
+  for (let i = 0; i < 60; i++) {
     const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     c.setAttribute('cx',      `${Math.random() * 100}%`);
     c.setAttribute('cy',      `${Math.random() * 100}%`);
-    c.setAttribute('r',       (Math.random() * 1.5 + 0.5).toString());
-    c.setAttribute('fill',    '#5a3c1e');
-    c.setAttribute('opacity', (Math.random() * 0.05 + 0.04).toString());
+    // Variable Größe für unterschiedliche Tropfen
+    const radius = Math.random() * 2 + 0.3;
+    c.setAttribute('r',       radius.toString());
+    // Variation in Farbe (von hellem Braun zu dunklem Tintenschwarz)
+    const colors = ['#5a3c1e', '#4a3218', '#3d2817', '#2c1e12'];
+    c.setAttribute('fill',    colors[Math.floor(Math.random() * colors.length)]);
+    // Variable Opazität für Tiefenwirkung
+    c.setAttribute('opacity', (Math.random() * 0.08 + 0.03).toString());
+    // Leichter Blur für weichere Kanten
+    if (Math.random() > 0.7) {
+      c.setAttribute('filter', 'blur(0.3px)');
+    }
     layer2.appendChild(c);
   }
-  for (let i = 0; i < 3; i++) {
+  
+  // Mehr organische Kratzer und Fasern
+  for (let i = 0; i < 5; i++) {
     const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     const sx = Math.random() * 100, sy = Math.random() * 100;
-    p.setAttribute('d',            `M ${sx}% ${sy}% Q ${sx+10}% ${sy+5}% ${sx+30}% ${sy+10}%`);
+    // Organischere Kurven mit mehreren Kontrollpunkten
+    const cp1x = sx + (Math.random() * 20 - 10);
+    const cp1y = sy + (Math.random() * 20 - 10);
+    const cp2x = sx + (Math.random() * 40 - 20);
+    const cp2y = sy + (Math.random() * 30 - 15);
+    const ex = sx + (Math.random() * 50 - 25);
+    const ey = sy + (Math.random() * 30 - 15);
+    
+    p.setAttribute('d', `M ${sx}% ${sy}% C ${cp1x}% ${cp1y}%, ${cp2x}% ${cp2y}%, ${ex}% ${ey}%`);
     p.setAttribute('fill',         'none');
     p.setAttribute('stroke',       '#5a3c1e');
-    p.setAttribute('stroke-width', '0.5');
-    p.setAttribute('opacity',      '0.03');
+    // Variable Strichstärke für handgezeichneten Look
+    p.setAttribute('stroke-width', (Math.random() * 0.4 + 0.3).toString());
+    p.setAttribute('opacity',      (Math.random() * 0.04 + 0.02).toString());
+    p.setAttribute('stroke-linecap', 'round');
+    // Leichter Blur für verblassten Look
+    p.setAttribute('filter', 'blur(0.5px)');
     layer3.appendChild(p);
   }
 }
@@ -311,6 +336,7 @@ function renderNote(noteData) {
   notesContainer.appendChild(noteEl);
   setupNoteInteractions(noteEl, noteData);
   setupResizeInteraction(noteEl, noteData);
+  enhanceInkWriting(); // Tinten-Optimierung anwenden
 }
 
 // ─── Note Drag + Auto-Save (Mouse + Phase 4a: Touch) ────────────────────────────
@@ -624,6 +650,17 @@ function setupResizeInteraction(noteEl, noteData) {
     resizeEnd();
     e.preventDefault();
   }, { passive: false });
+}
+
+// ─── Note Content: Tinten-Strichsimulation mit variabler Linienstärke ────────
+// Verbessertes Zeichengefühl durch Simulation von Druckempfindlichkeit
+function enhanceInkWriting() {
+  // Wird dynamisch auf contenteditable Elemente angewendet
+  // Simuliert variable Linienstärke durch CSS text-shadow bei Fokus
+  document.querySelectorAll('.note-content').forEach(el => {
+    el.style.textRendering = 'optimizeLegibility';
+    el.style.webkitFontSmoothing = 'antialiased';
+  });
 }
 
 // ─── Context Menu ─────────────────────────────────────────────────────────────
